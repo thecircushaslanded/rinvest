@@ -1,0 +1,7 @@
+**/*.csv
+**/*.pkl
+**/*.txt
+**/*.html
+**/*.xlsx
+**/*.pdf
+**/*.DS_STORE
