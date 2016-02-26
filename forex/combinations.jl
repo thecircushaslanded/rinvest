@@ -1,29 +1,40 @@
 using DataFrames
 
-df = readtable("/Users/Robert/Code/forex/test.csv")
+df = readtable("C:\\Users\\m1rab03\\Documents\\Projects\\Hedge_cleaned.csv")
 
-function returnpercent(comb::Array, row::Int)
-    return reduce(*, [1+df[row, c] for c in comb])
-end
+choices = [string(c) for c in names(df)[2:end]]
 
-hedges = DataFrame( broker=String[], c1=String[], c2=String[], c3=String[], c4=String[], r=Float32[] )
+hedges = DataFrame( broker=String[], p1=String[], p2=String[], p3=String[], p4=String[], ret=Float32[] )
+
 for k in 1:size(df)[1]
-    # Find best combination in this row
     broker = df[k,:broker]
-    choices = names(df)[2:end]
-    # All combinations
-    combs = combinations(choices,4)
-    for comb in combs 
-        ca = split(string(comb), r"\[|\:|\_|\,|\]", false)
-        if (ca[2]==ca[3]) & (ca[4]==ca[5]) & (ca[6]==ca[7]) & (ca[8]==ca[1]) &
-           (ca[1]!=ca[4]) & (ca[3]!=ca[6]) & (ca[5]!=ca[8]) & (ca[7]!=ca[2])
-                c1, c2, c3, c4 = [string(c) for c in comb]
-                r = returnpercent(comb, k)
-                push!(hedges, [broker c1 c2 c3 c4 r])
+    function isvalidchoice(choice::String)
+        return ~isna(df[k,symbol(choice)])
+    end
+    row_choices = filter(isvalidchoice, choices)
+    currencies = Set([c[1:3] for c in row_choices])
+    for c1 in currencies
+        for c2 in currencies
+            for c3 in currencies
+                for c4 in currencies
+                    if length(Set([c1, c2, c3, c4]))==4
+                        comb = [c1*"_"*c2, c2*"_"*c3, c3*"_"*c4, c4*"_"*c1]
+                        if all([in(col, row_choices) for col=comb]) 
+                            p1, p2, p3, p4 = comb
+                            ret = reduce(+, [df[k, symbol(col)] for col in comb])
+                            push!(hedges, [broker p1 p2 p3 p4 ret])
+                        end 
+                    end
+                end
+            end
         end
     end
 end
-
+                    
 
 sort!(hedges, cols=[:r], rev=true)
 print(hedges)
+
+broker_ret = sort!(by(hedges, [:broker], df -> median(df[:ret])), cols=[:x1], rev=true)
+pos_ret = sort!(hedges[hedges[:ret] .> 1e-8, :], cols=[:ret], rev=true)
+broker_ret = sort!(by(pos_ret, [:broker], df -> size(df)[1](df[:ret])), cols=[:x1], rev=true)
